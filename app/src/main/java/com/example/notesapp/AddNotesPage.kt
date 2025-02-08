@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -34,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.room.Room
@@ -47,29 +52,35 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 
-@Suppress("OVERRIDE_DEPRECATION")
+@Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
 class AddNotesPage : ComponentActivity() {
     lateinit var db: AppDataBase
     var title = ""
     var note = ""
 
+    @SuppressLint("CoroutineCreationDuringComposition")
+    @OptIn(DelicateCoroutinesApi::class)
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        db = Room.databaseBuilder(
-            applicationContext, AppDataBase::class.java, "storeNotes"
-        ).build()
+        GlobalScope.launch {
+            db = Room.databaseBuilder(
+                applicationContext, AppDataBase::class.java, "storeNotes"
+            ).build()
+            setContent {
+                NotesAppTheme {
 
-        setContent {
-            NotesAppTheme {
-                val dataNote =
-                    intent.getSerializableExtra<StoreNotes>("notes", StoreNotes::class.java)
-                Design(dataNote = dataNote, title = {
-                    title = it
-                }, value = {
-                    note = it
-                })
+                    val dataNote =
+                        intent.getSerializableExtra<StoreNotes>("note", StoreNotes::class.java)
+                    Log.d("====", "onCreate: $dataNote")
+
+                    Design(dataNote = dataNote, title = {
+                        title = it
+                    }, value = {
+                        note = it
+                    })
+                }
             }
         }
     }
@@ -79,16 +90,76 @@ class AddNotesPage : ComponentActivity() {
     @Composable
     fun Design(dataNote: StoreNotes?, title: (String) -> Unit, value: (String) -> Unit) {
 
-
+        Log.d("------------", "Design: $dataNote")
         val title = remember { mutableStateOf(dataNote?.title ?: "") }
         val note = remember { mutableStateOf(dataNote?.notes ?: "") }
+        val expandDialog = remember { mutableStateOf(false) }
 
-        GlobalScope.launch {
-            db = Room.databaseBuilder(
-                applicationContext, AppDataBase::class.java, "storeNotes"
-            ).build()
+        if (expandDialog.value) {
+            AlertDialog(
+                icon = {
+                    Icon(
+                        painter = painterResource(R.drawable.remove),
+                        contentDescription = "",
+                        tint = Color.White,
+                        modifier = Modifier.size(25.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Delete This Notes",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 30.sp,
+                        color = Color.White
+                    )
+                },
+                onDismissRequest = {
+                    expandDialog.value = false
+                }, confirmButton = {
+                    Button(modifier = Modifier.padding(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = topBtn
+                        ),
+                        onClick = {
+                            expandDialog.value = false
+                            GlobalScope.launch {
+                                dataNote?.let {
+                                    db.notesDao().deleteNotes(it.id)
+                                    val remainingNotes = db.notesDao().getAll()
+                                    if (remainingNotes.isEmpty()) {
+                                        db.notesDao().resetNotesId()
+                                    }
+                                    val intent =
+                                        Intent(applicationContext, MainActivity::class.java)
+                                    startActivity(intent)
+                                    finish()
+                                }
+                            }
+                        }) {
+                        Text(
+                            text = "Ok",
+                            fontSize = 20.sp,
+                            color = Color.White
+                        )
+                    }
+                }, dismissButton = {
+                    Button(modifier = Modifier.padding(10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = topBtn
+                        ), onClick = {
+                            expandDialog.value = false
+                        }) {
+                        Text(
+                            text = "Cancel",
+                            fontSize = 20.sp,
+                            color = Color.White
+                        )
+
+                    }
+                })
         }
         Scaffold {
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -128,23 +199,32 @@ class AddNotesPage : ComponentActivity() {
                             modifier = Modifier.padding(end = 10.dp),
                             containerColor = topBtn
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.eye),
-                                contentDescription = "Show",
+                            Icon(painter = painterResource(R.drawable.remove),
+                                contentDescription = "Remove",
                                 tint = Color.White,
-                                modifier = Modifier.size(25.dp)
-                            )
+                                modifier = Modifier
+                                    .size(25.dp)
+                                    .clickable {
+                                        expandDialog.value = true
+                                    })
                         }
+
                         FloatingActionButton(
-                            shape = RoundedCornerShape(10.dp), onClick = {}, containerColor = topBtn
+                            shape = RoundedCornerShape(10.dp),
+                            onClick = {},
+                            modifier = Modifier.padding(end = 10.dp),
+                            containerColor = topBtn
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.save),
-                                contentDescription = "Save",
+                                contentDescription = "Remove",
                                 tint = Color.White,
-                                modifier = Modifier.size(25.dp)
+                                modifier = Modifier
+                                    .size(25.dp)
                             )
                         }
+
+
                     }
                 }
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -191,16 +271,33 @@ class AddNotesPage : ComponentActivity() {
     @OptIn(DelicateCoroutinesApi::class)
     override fun onBackPressed() {
         super.onBackPressed()
-        Log.d("-------------", "onBackPressed: $title $note")
+        Log.d("-------------", "Check: $title $note")
         GlobalScope.launch {
-            db.notesDao().insert(
-                StoreNotes(
-                    title = "",
-                    notes = ""
+            var status = intent.getStringExtra("status")
+            val noteData = intent.getSerializableExtra("note") as? StoreNotes
+            Log.d("------------", "onBackPressed: $status")
+
+            if (title.isNotEmpty() && note.isNotEmpty()) {
+                val saveNote = StoreNotes(
+                    title = title,
+                    notes = note
                 )
-            )
+                try {
+                    if (status == "add") {
+                        db.notesDao().insert(saveNote)
+                    } else if (status == "edit") {
+                        noteData?.let {
+                            db.notesDao().updateNotes(it.id, saveNote.title, saveNote.notes)
+                        }
+
+                    }
+                } catch (e: Exception) {
+                    Log.d("------------", "onBackPressed Error: $e")
+                }
+            }
         }
-        super.onBackPressedDispatcher.onBackPressed()
+        startActivity(Intent(applicationContext, MainActivity::class.java))
+        finish()
     }
 }
 

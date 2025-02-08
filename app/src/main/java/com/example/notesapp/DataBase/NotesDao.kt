@@ -14,8 +14,10 @@ interface NotesDao {
     @Query("SELECT * FROM notes")
     fun getAll(): List<StoreNotes>
 
-    @Query("UPDATE notes SET notes = :notes, title = :title")
-    fun updateNotes(notes: String, title: String)
+    @Query("UPDATE notes SET notes = :notes, title = :title WHERE id = :id")
+    fun updateNotes(id: Int, title: String, notes: String)
+
+
 
     @Query("DELETE FROM notes WHERE id = :id")
     fun deleteNotes(id: Int)

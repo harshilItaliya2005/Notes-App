@@ -154,8 +154,9 @@ class MainActivity : ComponentActivity() {
             FloatingActionButton(
                 onClick = {
                     val intent = Intent(applicationContext, AddNotesPage::class.java)
-                    intent.putExtra("notes", StoreNotes::class.java)
+                    intent.putExtra("status","add")
                     startActivity(intent)
+                    finish()
                 },
                 modifier = Modifier.size(70.dp),
                 shape = CircleShape,
@@ -171,17 +172,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     @Composable
     fun NotesCard(notesList: StoreNotes) {
         OutlinedCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 10.dp)
-                .clickable{
+                .clickable {
                     val intent = Intent(applicationContext, AddNotesPage::class.java)
                     intent.putExtra("note", notesList)
+                    intent.putExtra("status","edit")
+                    Log.d("------------", "NotesCard: $notesList")
                     startActivity(intent)
+                    finish()
                 },
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
@@ -208,10 +211,5 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-    }
-
-    override fun onBackPressed() {
-        super.onBackPressed()
-        finish()
     }
 }
